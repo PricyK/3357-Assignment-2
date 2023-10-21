@@ -1,59 +1,48 @@
-# Assignment: UDP Simple Chat Room - UDP Server Code Implementation
-import socket, threading, queue
+# Assignment: UDP Simple Chat Room - UDP Client Code Implementation
+import socket, threading, random, argparse
 
 
 HEADER = 1024
 FORMAT = 'ascii'
-PORT = 9999
-
-messages = queue.Queue()
-clients = []
+SERVER = '127.0.0.1'
+PORT = random.randint(8000, 9000)
 
 
-def receive(server):
+def receive():
     while True:
         try:
-            message, addr = server.recvfrom(HEADER)
-            messages.put((message, addr))
+            message, _ = client.recvfrom(1024)
+            print(message.decode(FORMAT))
         except:
             pass
 
-def broadcast(server):
+
+
+def run(clientSocket, clientname, serverAddr, serverPort):
+    receive_thread = threading.Thread(target=receive)
+    receive_thread.start()
+
+    client.sendto(f"SIGNUP_TAG: {clientname}".encode(FORMAT), (SERVER, 9999))
+
     while True:
-        while not messages.empty():
+        message = input(f"{clientname}: ")
+        msg = message[message.index(":")+2:]
+        if msg == "!q":
+            client.sendto(f"[{clientname} DISCONNECTING]".encode(FORMAT), (SERVER, 9999))
+            exit()
+        else:
+            client.sendto(f"{clientname}: {msg}".encode(FORMAT), (SERVER, 9999))
 
-            message, addr = messages.get()
-            print(message.decode(FORMAT))
-
-            if addr not in clients:
-                clients.append(addr)
-
-            for client in clients:
-                try:
-                    if message.decode().startswith("NICKNAME:"):
-                        nickname = message.decode(FORMAT)[message.decode().index(":")+1:]
-                        server.sendto(f"{nickname} has joined the chat!")
-                    else:
-                        server.sendto(message, client)
-
-                except:
-                    clients.remove(client)
-
-
-def run(serverSocket, serverPort):
-    print("Server is listening...")
-
-    recv_thread = threading.Thread(target=receive, args=(serverSocket,))
-    brdcst_thread = threading.Thread(target=broadcast, args=(serverSocket,))
-
-    recv_thread.start()
-    brdcst_thread.start()
 
 # **Main Code**:  
 if __name__ == "__main__":
     
-    server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Creating a UDP socket.
-    server.bind(("127.0.0.1", PORT))
+    # Arguments: name address
+    parser = argparse.ArgumentParser(description='argument parser')
+    parser.add_argument('name')  # to use: python udp_client.py username
+    args = parser.parse_args()
+    nickname = args.name
+    client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
+    client.bind((SERVER, PORT))
 
-    
-    run(server, PORT)  # Calling the function to start the server.
+    run(client, nickname, SERVER, 9999)  # Calling the function to start the client.
